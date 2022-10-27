@@ -18,7 +18,7 @@ class Train(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
         self.writer = SummaryWriter()
-        logging.basicConfig(filename=os.path.join(self.writer.log_dir, "training.log"), level=logging.DEBUG)
+        logging.basicConfig(filename=os.path.join(self.writer.log_dir, "training.log"), level=logging.INFO)
         self.criterion = torch.nn.NLLLoss().to(self.args.device)
         self.softmax = torch.nn.Softmax(dim=1)
 
