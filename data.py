@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset
 import os
 from PIL import Image
+from torchvision.transforms import functional
 
 
 class Data_mura(Dataset):
@@ -56,40 +57,46 @@ class Data_chest(Dataset):
             pathDatasetFile = "/mnt/hdd/medical-imaging/data/CheXpert-v1.0-small/valid.csv"
 
         fileDescriptor = open(pathDatasetFile, "r")
+        next(fileDescriptor)    # without the header line
         listImagePaths = []
-        listImageLabels = []
+        dictImageLabels = {"sex":[], "age":[]}  # two different factor into one dictionary
         line = True
         while line:
             line = fileDescriptor.readline()
             if line:
                 lineItems = line.split(',')
                 imagePath = os.path.join(root, lineItems[0])
+                # the error image
                 if imagePath == "/mnt/hdd/medical-imaging/data/CheXpert-v1.0-small/train/patient06765/study4/view1_frontal.jpg":
                     continue
                 else:
-                    imageLabel = bool(line.split(",")[-2])
+                    imageLabel_sex = line.split(",")[1]
+                    imageLabel_age = line.split(",")[2]
 
                     listImagePaths.append(imagePath)
-                    listImageLabels.append(imageLabel)
+                    dictImageLabels["sex"].append(imageLabel_sex)
+                    dictImageLabels["age"].append(imageLabel_age)
         fileDescriptor.close()
-        listImagePaths = listImagePaths[1:]
-        listImageLabels = listImageLabels[1:]
 
         self.img_path = listImagePaths
-        self.img_label = listImageLabels
+        self.img_factor = dictImageLabels
+        # self.img_factor = list(dictImageLabels.values())
 
     def __getitem__(self, index):
         image_path = self.img_path[index]
         images = []
         image = Image.open(image_path)
+        image = functional.equalize(image)
         if self.transform is not None:
             image_1 = self.transform(image)
             image_2 = self.transform(image)
         images.append(image_1)
         images.append(image_2)
-        label = self.img_label[index]
+        factor = {"sex":[], "age":[]}
+        factor["sex"] = self.img_factor["sex"][index]
+        factor["age"] = self.img_factor["age"][index]
 
-        return images, label
+        return images, factor
 
     def __len__(self):
         return len(self.img_path)

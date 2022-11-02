@@ -7,7 +7,7 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 import torch.optim as optim
 
-from fine_tune import Train
+from classifier_train import Train
 from data import Data_mura
 
 
