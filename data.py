@@ -70,7 +70,7 @@ class Data_chest(Dataset):
                 if imagePath == "/mnt/hdd/medical-imaging/data/CheXpert-v1.0-small/train/patient06765/study4/view1_frontal.jpg":
                     continue
                 else:
-                    imageLabel_sex = line.split(",")[1]
+                    imageLabel_sex = line.split(",")[1] == 'Female'
                     imageLabel_age = line.split(",")[2]
 
                     listImagePaths.append(imagePath)

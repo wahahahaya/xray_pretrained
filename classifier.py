@@ -21,7 +21,8 @@ parser.add_argument("--batch_size", default=48, type=int)
 parser.add_argument("--lr", default=1e-5, type=float)
 parser.add_argument("--weight_decay", default=1e-4, type=float)
 parser.add_argument("--seed", default=4098, type=int)
-
+parser.add_argument("--model", default="simclr", type=str)
+parser.add_argument("--process", default="scratch_ce", type=str)
 
 def main():
     args = parser.parse_args()
@@ -44,34 +45,34 @@ def main():
 
     train_loader = DataLoader(
         train_ds,
-        batch_size=48,
-        num_workers=2,
+        batch_size=96,
+        num_workers=10,
         shuffle=True,
         pin_memory=True
     )
 
     val_loader = DataLoader(
         val_ds,
-        batch_size=48,
-        num_workers=2,
+        batch_size=96,
+        num_workers=10,
         shuffle=True,
         pin_memory=True
     )
 
-    ###
-    # model = models.resnet18(weights="None", num_classes=2)
-    ###
-    model = models.resnet18(weights="ResNet18_Weights.IMAGENET1K_V1")
-    dim_mlp = model.fc.in_features
-    model.fc = nn.Linear(dim_mlp, 2)
-    ###
-    # model = ResNetSimCLR(base_model="resnet18", out_dim=128)
-    # checkpoint = torch.load("/home/arlen/xray_classification/runs/Nov06_05-03-02_tw-ws_self_supervision/checkpoint_0050.pth.tar")
-    # model.load_state_dict(checkpoint["state_dict"])
-    # model = nn.Sequential(
-    #     model,
-    #     nn.Linear(128,2)
-    # )
+    if args.model == "ImageNet":
+        model = models.resnet18(weights="ResNet18_Weights.IMAGENET1K_V1")
+        dim_mlp = model.fc.in_features
+        model.fc = nn.Linear(dim_mlp, 2)
+    elif args.model == "scratch":
+        model = models.resnet18(weights=None, num_classes=2)
+    elif args.model == "simclr":
+        model = ResNetSimCLR(base_model="resnet18", out_dim=128)
+        checkpoint = torch.load("/home/arlen/xray_classification/runs/Nov22_09-42-41_tw-ws_self_supervision/checkpoint_0050.pth.tar")
+        model.load_state_dict(checkpoint["state_dict"])
+        model = nn.Sequential(
+            model,
+            nn.Linear(128,2)
+        )
 
     optimizer = optim.Adam(model.parameters(), args.lr)
     train_process = Train(model=model, optimizer=optimizer, args=args)
