@@ -61,16 +61,32 @@ class SimCLR(object):
         logits = logits / self.args.temperature
         return logits, labels, lables_onehot
 
-    def factor_loss(self, factor, features):
-        factor = factor.to(self.args.device)
-        factor = factor.repeat(2)
-        factor = (factor.unsqueeze(0) == factor.unsqueeze(1)).float()
+    def sex_loss(self, factor, features):
+        factor = factor.to(self.args.device)    # torch.Size([128])
+        factor = factor.repeat(2)   # torch.Size([256])
+        factor = (factor.unsqueeze(0) == factor.unsqueeze(1)).float()   # torch.Size([256, 256])
 
         features = F.normalize(features, dim=1)
         similarity_matrix = torch.matmul(features, features.T)
         logits = similarity_matrix
 
         return logits, factor
+
+    def age_loss(self, factor, features):
+        factor = factor.to(self.args.device)
+        factor = factor.repeat(2)
+        arr_list = []
+        for i in (factor):
+            for j in (factor):
+                arr_list.append((i-j)**2)
+        factor_map = torch.stack(arr_list).reshape(256, 256)
+        factor_map = torch.exp((-(factor_map/100)/2))
+
+        features = F.normalize(features, dim=1)
+        similarity_matrix = torch.matmul(features, features.T)
+        logits = similarity_matrix
+
+        return logits, factor_map
 
     def train(self, train_loader):
         scaler = GradScaler(enabled=self.args.fp16_precision)
@@ -80,8 +96,8 @@ class SimCLR(object):
         n_iter = 0
         logging.info(f"Start SimCLR training for {self.args.epochs} epochs.")
         logging.info(f"Training with gpu: {self.args.device}.")
-        logging.info(f"model: {self.args.device}.")
-        logging.info(f"softmax temperature: {self.args.arch}.")
+        logging.info(f"model: {self.args.arch}.")
+        logging.info(f"softmax temperature: {self.args.temperature}.")
         logging.info(f"loss: {self.args.loss}.")
 
         for epoch_counter in range(self.args.epochs):
@@ -96,14 +112,14 @@ class SimCLR(object):
                     # logits, labels = self.info_nce_loss(features)  # logits.shape == [256,255], labels.shape == [256]
                     logits, labels, lables_onehot = self.info_nce_loss(features)  # logits.shape == [256,255], labels.shape == [256]
 
-                    logits_sex, factor_sex = self.factor_loss(factor['sex'], features)
-                    # logits_age, factor_age = self.factor_loss(F.normalize(factor['sex'], dim=1), features)
+                    logits_sex, factor_sex = self.sex_loss(factor['sex'], features)
+                    logits_age, factor_age = self.age_loss(factor['age'], features)
 
                     loss_sex = self.criterion_factor(logits_sex, factor_sex)
-                    # loss_age = self.criterion_factor(logits_age, factor_age)
+                    loss_age = self.criterion_factor(logits_age, factor_age)
                     loss_feature = self.criterion(logits, lables_onehot)
 
-                    loss = loss_sex + loss_feature
+                    loss = loss_feature + loss_sex + loss_age
 
 
                 self.optimizer.zero_grad()
@@ -119,6 +135,7 @@ class SimCLR(object):
                     self.writer.add_scalar('pre loss', loss, global_step=n_iter)
                     self.writer.add_scalar('pre loss feature', loss_feature, global_step=n_iter)
                     self.writer.add_scalar('pre loss sex', loss_sex, global_step=n_iter)
+                    self.writer.add_scalar('pre loss age', loss_age, global_step=n_iter)
                     self.writer.add_scalar('pre acc/top1', top1[0], global_step=n_iter)
                     self.writer.add_scalar('pre acc/top5', top5[0], global_step=n_iter)
 

@@ -3,7 +3,9 @@ import torch
 import torch.backends.cudnn as cudnn
 from torchvision import models
 from models.resnet_simclr import ResNetSimCLR
-from pre_train_simclr import SimCLR
+from pre_train_simclr_v2 import SimCLR
+
+from torch.profiler import profile, record_function, ProfilerActivity
 
 from torchvision import transforms
 from data import Data_chest
@@ -48,6 +50,7 @@ parser.add_argument('--temperature', default=0.07, type=float,
 parser.add_argument('--n-views', default=2, type=int, metavar='N',
                     help='Number of views for contrastive learning training.')
 parser.add_argument('--gpu-index', default=0, type=int, help='Gpu index.')
+parser.add_argument('--loss', default="CE", type=str, help='SimCLR loss function.')
 
 
 class GaussianNoise(object):
@@ -82,11 +85,11 @@ def main():
     # ColorJitter: brightness, contrast, saturation, hue
     color_jitter = transforms.ColorJitter(0.8, 0.8, 0.8, 0.2)
     tfs = transforms.Compose([
-        transforms.RandomResizedCrop((256,256), scale=(0.5,1.0)),
+        transforms.RandomResizedCrop((256,256), scale=(0.5,1.0), ratio=(1.0,1.0)),
         transforms.RandomApply([color_jitter], p=0.8),
         transforms.RandomRotation(15),
         GaussianNoise(0.1),
-        transforms.GaussianBlur(25, (0.1, 0.2)),
+        transforms.GaussianBlur(5, (0.1, 2.0)),
         transforms.ToTensor(),
     ])
 
@@ -99,6 +102,7 @@ def main():
     model = ResNetSimCLR(base_model=args.arch, out_dim=args.out_dim)
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
+    # optimizer_SGD = torch.optim.SGD(model.parameters(), lr=1e-3, weight_decay=1e-5, momentum=0.9)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader), eta_min=0,
                                                            last_epoch=-1)
