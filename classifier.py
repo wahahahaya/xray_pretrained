@@ -1,6 +1,7 @@
 import argparse
-from pickletools import optimize
-from sched import scheduler
+import random
+import numpy as np
+
 import torch
 import torch.nn as nn
 from torchvision import models
@@ -22,11 +23,18 @@ parser.add_argument("--lr", default=1e-5, type=float)
 parser.add_argument("--weight_decay", default=1e-4, type=float)
 parser.add_argument("--seed", default=4098, type=int)
 parser.add_argument("--model", default="simclr", type=str)
-parser.add_argument("--process", default="scratch_ce", type=str)
+parser.add_argument("--checkpoint", default="simclr", type=str)
+
 
 def main():
     args = parser.parse_args()
     args.device = torch.device('cuda')
+    args.seed = random.randint(1, 10000)
+    print("Random Seed: ", args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
     tfs_train = transforms.Compose([
         transforms.Resize((256, 256)),
@@ -67,7 +75,8 @@ def main():
         model = models.resnet18(weights=None, num_classes=2)
     elif args.model == "simclr":
         model = ResNetSimCLR(base_model="resnet18", out_dim=128)
-        checkpoint = torch.load("/home/arlen/xray_classification/runs/Nov22_09-42-41_tw-ws_self_supervision/checkpoint_0050.pth.tar")
+        args.checkpoint_path = "/home/arlen/xray_classification/pre_train/Dec07_08-58-44/checkpoint_0050.pth.tar"
+        checkpoint = torch.load(args.checkpoint_path)
         model.load_state_dict(checkpoint["state_dict"])
         model = nn.Sequential(
             model,

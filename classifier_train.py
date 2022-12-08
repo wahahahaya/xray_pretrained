@@ -10,6 +10,7 @@ import numpy as np
 from utils import save_config_file, save_checkpoint
 from torchmetrics.functional import auroc
 from torchmetrics.functional import cohen_kappa
+from datetime import datetime
 
 
 class Train(object):
@@ -17,7 +18,8 @@ class Train(object):
         self.args = kwargs['args']
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
-        self.writer = SummaryWriter()
+
+        self.writer = SummaryWriter(log_dir="classifier/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, "training.log"), level=logging.INFO)
         self.criterion = torch.nn.NLLLoss().to(self.args.device)
         self.softmax = torch.nn.Softmax(dim=1)
@@ -27,7 +29,10 @@ class Train(object):
         save_config_file(self.writer.log_dir, self.args)
 
         logging.info(f"Start Classification training for {self.args.epochs} epochs.")
-        logging.info(f"Model: {self.args.model + self.args.process}.")
+        logging.info(f"Seed: {self.args.seed}.")
+        logging.info(f"Model: {self.args.model}.")
+        if self.args.model == "simclr":
+            logging.info(f"Check point: {self.args.checkpoint_path}.")
 
         for epoch in range(self.args.epochs):
             for image, label in tqdm(train_loader):

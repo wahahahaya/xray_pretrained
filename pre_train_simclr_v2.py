@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
 from torch.profiler import profile, record_function, ProfilerActivity
+from datetime import datetime
 
 from utils import save_config_file, save_checkpoint, accuracy
 
@@ -17,7 +18,7 @@ class SimCLR(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
-        self.writer = SummaryWriter(comment='_self_supervision')
+        self.writer = SummaryWriter(log_dir="pre_train/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, 'simclr.log'), level=logging.INFO)
         self.loss = self.args.loss
         if self.loss == "CE":
@@ -74,13 +75,14 @@ class SimCLR(object):
 
     def age_loss(self, factor, features):
         factor = factor.to(self.args.device)
-        factor = factor.repeat(2)
-        arr_list = []
-        for i in (factor):
-            for j in (factor):
-                arr_list.append((i-j)**2)
-        factor_map = torch.stack(arr_list).reshape(256, 256)
-        factor_map = torch.exp((-(factor_map/100)/2))
+        factor = factor.repeat(2).float().unsqueeze(1)
+        # arr_list = []
+        # for i in (factor):
+        #     for j in (factor):
+        #         arr_list.append((i-j)**2)
+        # factor_map = torch.stack(arr_list).reshape(256, 256)
+        factor_map = torch.cdist(factor, factor, p=2)
+        factor_map = torch.exp(-((factor_map**2)/200))
 
         features = F.normalize(features, dim=1)
         similarity_matrix = torch.matmul(features, features.T)
@@ -98,7 +100,7 @@ class SimCLR(object):
         logging.info(f"Training with gpu: {self.args.device}.")
         logging.info(f"model: {self.args.arch}.")
         logging.info(f"softmax temperature: {self.args.temperature}.")
-        logging.info(f"loss: {self.args.loss}.")
+        logging.info(f"info nce loss: {self.args.loss}.")
 
         for epoch_counter in range(self.args.epochs):
             for images, factor in tqdm(train_loader):
@@ -113,14 +115,16 @@ class SimCLR(object):
                     logits, labels, lables_onehot = self.info_nce_loss(features)  # logits.shape == [256,255], labels.shape == [256]
 
                     logits_sex, factor_sex = self.sex_loss(factor['sex'], features)
-                    logits_age, factor_age = self.age_loss(factor['age'], features)
+                    # logits_age, factor_age = self.age_loss(factor['age'], features)
 
                     loss_sex = self.criterion_factor(logits_sex, factor_sex)
-                    loss_age = self.criterion_factor(logits_age, factor_age)
-                    loss_feature = self.criterion(logits, lables_onehot)
+                    # loss_age = self.criterion_factor(logits_age, factor_age)
+                    if self.loss == "CE":
+                        loss_feature = self.criterion(logits, labels)
+                    elif self.loss == "MSE":
+                        loss_feature = self.criterion(logits, lables_onehot)
 
-                    loss = loss_feature + loss_sex + loss_age
-
+                    loss = loss_feature + loss_sex
 
                 self.optimizer.zero_grad()
 

@@ -71,7 +71,7 @@ class Data_chest(Dataset):
                     continue
                 else:
                     imageLabel_sex = line.split(",")[1] == 'Female'
-                    imageLabel_age = line.split(",")[2]
+                    imageLabel_age = int(line.split(",")[2])
 
                     listImagePaths.append(imagePath)
                     dictImageLabels["sex"].append(imageLabel_sex)
