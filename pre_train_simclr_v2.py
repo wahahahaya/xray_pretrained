@@ -139,7 +139,7 @@ class SimCLR(object):
                     self.writer.add_scalar('pre loss', loss, global_step=n_iter)
                     self.writer.add_scalar('pre loss feature', loss_feature, global_step=n_iter)
                     self.writer.add_scalar('pre loss sex', loss_sex, global_step=n_iter)
-                    self.writer.add_scalar('pre loss age', loss_age, global_step=n_iter)
+                    # self.writer.add_scalar('pre loss age', loss_age, global_step=n_iter)
                     self.writer.add_scalar('pre acc/top1', top1[0], global_step=n_iter)
                     self.writer.add_scalar('pre acc/top5', top5[0], global_step=n_iter)
 
