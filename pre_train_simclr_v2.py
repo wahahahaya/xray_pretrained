@@ -76,11 +76,6 @@ class SimCLR(object):
     def age_loss(self, factor, features):
         factor = factor.to(self.args.device)
         factor = factor.repeat(2).float().unsqueeze(1)
-        # arr_list = []
-        # for i in (factor):
-        #     for j in (factor):
-        #         arr_list.append((i-j)**2)
-        # factor_map = torch.stack(arr_list).reshape(256, 256)
         factor_map = torch.cdist(factor, factor, p=2)
         factor_map = torch.exp(-((factor_map**2)/200))
 
@@ -101,6 +96,7 @@ class SimCLR(object):
         logging.info(f"model: {self.args.arch}.")
         logging.info(f"softmax temperature: {self.args.temperature}.")
         logging.info(f"info nce loss: {self.args.loss}.")
+        logging.info(f"learning rate: {self.args.lr}.")
 
         for epoch_counter in range(self.args.epochs):
             for images, factor in tqdm(train_loader):
@@ -114,17 +110,17 @@ class SimCLR(object):
                     # logits, labels = self.info_nce_loss(features)  # logits.shape == [256,255], labels.shape == [256]
                     logits, labels, lables_onehot = self.info_nce_loss(features)  # logits.shape == [256,255], labels.shape == [256]
 
-                    logits_sex, factor_sex = self.sex_loss(factor['sex'], features)
+                    # logits_sex, factor_sex = self.sex_loss(factor['sex'], features)
                     # logits_age, factor_age = self.age_loss(factor['age'], features)
 
-                    loss_sex = self.criterion_factor(logits_sex, factor_sex)
+                    # loss_sex = self.criterion_factor(logits_sex, factor_sex)
                     # loss_age = self.criterion_factor(logits_age, factor_age)
                     if self.loss == "CE":
                         loss_feature = self.criterion(logits, labels)
                     elif self.loss == "MSE":
                         loss_feature = self.criterion(logits, lables_onehot)
 
-                    loss = loss_feature + loss_sex
+                    loss = loss_feature
 
                 self.optimizer.zero_grad()
 
@@ -138,7 +134,7 @@ class SimCLR(object):
                     top1, top5 = accuracy(logits, labels, topk=(1, 5))
                     self.writer.add_scalar('pre loss', loss, global_step=n_iter)
                     self.writer.add_scalar('pre loss feature', loss_feature, global_step=n_iter)
-                    self.writer.add_scalar('pre loss sex', loss_sex, global_step=n_iter)
+                    # self.writer.add_scalar('pre loss sex', loss_sex, global_step=n_iter)
                     # self.writer.add_scalar('pre loss age', loss_age, global_step=n_iter)
                     self.writer.add_scalar('pre acc/top1', top1[0], global_step=n_iter)
                     self.writer.add_scalar('pre acc/top5', top5[0], global_step=n_iter)
