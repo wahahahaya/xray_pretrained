@@ -85,7 +85,7 @@ class SimCLR(object):
 
         return logits, factor_map
 
-    def train(self, train_loader):
+    def train(self, train_loader, val_loader):
         scaler = GradScaler(enabled=self.args.fp16_precision)
         # save config file
         save_config_file(self.writer.log_dir, self.args)
@@ -130,21 +130,32 @@ class SimCLR(object):
                 scaler.update()
 
 
-                if n_iter % self.args.log_every_n_steps == 0:
-                    top1, top5 = accuracy(logits, labels, topk=(1, 5))
-                    self.writer.add_scalar('pre loss', loss, global_step=n_iter)
-                    self.writer.add_scalar('pre loss feature', loss_feature, global_step=n_iter)
-                    # self.writer.add_scalar('pre loss sex', loss_sex, global_step=n_iter)
-                    # self.writer.add_scalar('pre loss age', loss_age, global_step=n_iter)
-                    self.writer.add_scalar('pre acc/top1', top1[0], global_step=n_iter)
-                    self.writer.add_scalar('pre acc/top5', top5[0], global_step=n_iter)
+                top1, top5 = accuracy(logits, labels, topk=(1, 5))
+            self.writer.add_scalar('pre loss', loss, global_step=epoch_counter)
+            self.writer.add_scalar('pre loss feature', loss_feature, global_step=epoch_counter)
+            self.writer.add_scalar('pre acc/top1', top1[0], global_step=epoch_counter)
+            self.writer.add_scalar('pre acc/top5', top5[0], global_step=epoch_counter)
 
-                n_iter += 1
+
+            for images_val, factor_val in tqdm(val_loader):
+                images_val = torch.cat(images_val, dim=0).to(self.args.device)
+
+                batch, channel, weidth, length = images_val.shape
+                images_val = torch.broadcast_to(images_val, (batch, 3, weidth, length)).to(self.args.device)
+                with torch.no_grad():
+                    features_val = self.model(images_val)
+                # logits, labels = self.info_nce_loss(features)  # logits.shape == [256,255], labels.shape == [256]
+                logits_val, labels_val, lables_onehot_val = self.info_nce_loss(features_val)  # logits.shape == [256,255], labels.shape == [256]
+                
+                top1_val, top5_val = accuracy(logits_val, labels_val, topk=(1, 5))
+            self.writer.add_scalar('pre acc/top1', top1_val[0], global_step=epoch_counter)
+            self.writer.add_scalar('pre acc/top5', top5_val[0], global_step=epoch_counter)
+
         
             # warmup for the first 10 epochs
             if epoch_counter >= 10:
                 self.scheduler.step()
-            logging.info(f"Epoch: {epoch_counter}\tLoss: {loss}\tTop1 accuracy: {top1[0]}")
+            logging.info(f"Epoch: {epoch_counter}\tLoss: {loss}\tTop1 accuracy: {top1[0]}\tTop val accuracy: {top1_val[0]}")
 
         logging.info("Training has finished.")
         # save model checkpoints
