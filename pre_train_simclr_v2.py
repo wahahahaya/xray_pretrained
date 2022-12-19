@@ -148,8 +148,8 @@ class SimCLR(object):
                 logits_val, labels_val, lables_onehot_val = self.info_nce_loss(features_val)  # logits.shape == [256,255], labels.shape == [256]
                 
                 top1_val, top5_val = accuracy(logits_val, labels_val, topk=(1, 5))
-            self.writer.add_scalar('pre acc/top1', top1_val[0], global_step=epoch_counter)
-            self.writer.add_scalar('pre acc/top5', top5_val[0], global_step=epoch_counter)
+            self.writer.add_scalar('pre val acc/top1', top1_val[0], global_step=epoch_counter)
+            self.writer.add_scalar('pre val acc/top5', top5_val[0], global_step=epoch_counter)
 
         
             # warmup for the first 10 epochs
