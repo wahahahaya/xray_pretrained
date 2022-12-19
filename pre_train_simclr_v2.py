@@ -155,6 +155,15 @@ class SimCLR(object):
             # warmup for the first 10 epochs
             if epoch_counter >= 10:
                 self.scheduler.step()
+
+            # if epoch_counter%10 == 0:
+            #     checkpoint_name = 'checkpoint_{:04d}.pth.tar'.format(epoch_counter)
+            #     save_checkpoint({
+            #         'epoch': self.args.epochs,
+            #         'arch': self.args.arch,
+            #         'state_dict': self.model.state_dict(),
+            #         'optimizer': self.optimizer.state_dict(),
+            #     }, is_best=False, filename=os.path.join(self.writer.log_dir, checkpoint_name))
             logging.info(f"Epoch: {epoch_counter}\tLoss: {loss}\tTop1 accuracy: {top1[0]}\tTop val accuracy: {top1_val[0]}")
 
         logging.info("Training has finished.")
