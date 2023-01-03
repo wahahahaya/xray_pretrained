@@ -14,6 +14,7 @@ class ResNetSimCLR(nn.Module):
 
         # add mlp projection head
         self.backbone.fc = nn.Sequential(nn.Linear(dim_mlp, dim_mlp), nn.ReLU(), nn.Linear(dim_mlp, out_dim))
+        # out_dim == 128
 
     def _get_basemodel(self, model_name):
         model = self.resnet_dict[model_name]

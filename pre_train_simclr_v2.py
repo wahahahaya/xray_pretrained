@@ -94,6 +94,8 @@ class SimCLR(object):
         logging.info(f"Start SimCLR training for {self.args.epochs} epochs.")
         logging.info(f"Training with gpu: {self.args.device}.")
         logging.info(f"model: {self.args.arch}.")
+        logging.info(f"data: {self.args.data}.")
+        logging.info(f"batch: {self.args.batch_size}.")
         logging.info(f"softmax temperature: {self.args.temperature}.")
         logging.info(f"info nce loss: {self.args.loss}.")
         logging.info(f"learning rate: {self.args.lr}.")
@@ -156,14 +158,14 @@ class SimCLR(object):
             if epoch_counter >= 10:
                 self.scheduler.step()
 
-            # if epoch_counter%10 == 0:
-            #     checkpoint_name = 'checkpoint_{:04d}.pth.tar'.format(epoch_counter)
-            #     save_checkpoint({
-            #         'epoch': self.args.epochs,
-            #         'arch': self.args.arch,
-            #         'state_dict': self.model.state_dict(),
-            #         'optimizer': self.optimizer.state_dict(),
-            #     }, is_best=False, filename=os.path.join(self.writer.log_dir, checkpoint_name))
+            if epoch_counter%100 == 0:
+                checkpoint_name = 'checkpoint_{:04d}.pth.tar'.format(epoch_counter)
+                save_checkpoint({
+                    'epoch': self.args.epochs,
+                    'arch': self.args.arch,
+                    'state_dict': self.model.state_dict(),
+                    'optimizer': self.optimizer.state_dict(),
+                }, is_best=False, filename=os.path.join(self.writer.log_dir, checkpoint_name))
             logging.info(f"Epoch: {epoch_counter}\tLoss: {loss}\tTop1 accuracy: {top1[0]}\tTop val accuracy: {top1_val[0]}")
 
         logging.info("Training has finished.")

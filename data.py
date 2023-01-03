@@ -86,6 +86,8 @@ class Data_chest(Dataset):
         image_path = self.img_path[index]
         images = []
         image = Image.open(image_path)
+        print(image.size)
+        print(type(image))
         image = functional.equalize(image)
         if self.transform is not None:
             image_1 = self.transform(image)
@@ -101,3 +103,50 @@ class Data_chest(Dataset):
     def __len__(self):
         return len(self.img_path)
 
+
+class Data_mura_simclr(Dataset):
+    def __init__(self, transforms_=None, mode='train'):
+        self.transform = transforms_
+        root = "/mnt/hdd/medical-imaging/data/"
+        if mode == "train":
+            pathDatasetFile = "/mnt/hdd/medical-imaging/data/MURA-v1.1/train_image_paths.csv"
+        elif mode == "val":
+            pathDatasetFile = "/mnt/hdd/medical-imaging/data/MURA-v1.1/valid_image_paths.csv"
+        fileDescriptor = open(pathDatasetFile, "r")
+        listImagePaths = []
+        listImageLabels = []
+        line = True
+        while line:
+            line = fileDescriptor.readline()
+            if line:
+                lineItems = line.split()
+                if lineItems[0].split("/")[2]=='XR_SHOULDER':
+                    imagePath = os.path.join(root, lineItems[0])
+                    if 'positive' in imagePath.split("/")[-2]:
+                        imageLabel = 1
+                    else:
+                        imageLabel = 0
+
+                    listImagePaths.append(imagePath)
+                    listImageLabels.append(imageLabel)
+        fileDescriptor.close()
+
+        self.img_path = listImagePaths
+        self.img_label = listImageLabels
+
+    def __getitem__(self, index):
+        image_path = self.img_path[index]
+        images = []
+        image = Image.open(image_path).convert("RGB")
+        image = functional.equalize(image)
+        if self.transform is not None:
+            image_1 = self.transform(image)
+            image_2 = self.transform(image)
+        images.append(image_1)
+        images.append(image_2)
+        label = self.img_label[index]
+
+        return images, label
+
+    def __len__(self):
+        return len(self.img_path)
