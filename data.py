@@ -5,13 +5,13 @@ from torchvision.transforms import functional
 
 
 class Data_mura(Dataset):
-    def __init__(self, transforms_=None, mode='train'):
+    def __init__(self, root, transforms_=None, mode='train'):
         self.transform = transforms_
-        root = "/mnt/hdd/medical-imaging/data/"
+        self.root = root
         if mode == "train":
-            pathDatasetFile = "/mnt/hdd/medical-imaging/data/MURA-v1.1/train_image_paths.csv"
+            pathDatasetFile = os.path.join(self.root, "MURA-v1.1/train_image_paths.csv")
         elif mode == "val":
-            pathDatasetFile = "/mnt/hdd/medical-imaging/data/MURA-v1.1/valid_image_paths.csv"
+            pathDatasetFile = os.path.join(self.root, "MURA-v1.1/valid_image_paths.csv")
         fileDescriptor = open(pathDatasetFile, "r")
         listImagePaths = []
         listImageLabels = []
@@ -21,7 +21,7 @@ class Data_mura(Dataset):
             if line:
                 lineItems = line.split()
                 if lineItems[0].split("/")[2]=='XR_SHOULDER':
-                    imagePath = os.path.join(root, lineItems[0])
+                    imagePath = os.path.join(self.root, lineItems[0])
                     if 'positive' in imagePath.split("/")[-2]:
                         imageLabel = 1
                     else:
@@ -48,13 +48,13 @@ class Data_mura(Dataset):
 
 
 class Data_chest(Dataset):
-    def __init__(self, transforms_=None, mode='train'):
+    def __init__(self, root, transforms_=None, mode='train'):
         self.transform = transforms_
-        root = "/mnt/hdd/medical-imaging/data/"
+        self.root = root
         if mode == 'train':
-            pathDatasetFile = "/mnt/hdd/medical-imaging/data/CheXpert-v1.0-small/train.csv"
+            pathDatasetFile = os.path.join(self.root, "CheXpert-v1.0-small/train.csv")
         elif mode == "val":
-            pathDatasetFile = "/mnt/hdd/medical-imaging/data/CheXpert-v1.0-small/valid.csv"
+            pathDatasetFile = os.path.join(self.root, "CheXpert-v1.0-small/valid.csv")
 
         fileDescriptor = open(pathDatasetFile, "r")
         next(fileDescriptor)    # without the header line
@@ -67,7 +67,7 @@ class Data_chest(Dataset):
                 lineItems = line.split(',')
                 imagePath = os.path.join(root, lineItems[0])
                 # the error image
-                if imagePath == "/mnt/hdd/medical-imaging/data/CheXpert-v1.0-small/train/patient06765/study4/view1_frontal.jpg":
+                if imagePath == os.path.join(self.root, "CheXpert-v1.0-small/train/patient06765/study4/view1_frontal.jpg"):
                     continue
                 else:
                     imageLabel_sex = line.split(",")[1] == 'Female'
@@ -105,13 +105,13 @@ class Data_chest(Dataset):
 
 
 class Data_mura_simclr(Dataset):
-    def __init__(self, transforms_=None, mode='train'):
+    def __init__(self, root, transforms_=None, mode='train'):
         self.transform = transforms_
-        root = "/mnt/hdd/medical-imaging/data/"
+        self.root = root
         if mode == "train":
-            pathDatasetFile = "/mnt/hdd/medical-imaging/data/MURA-v1.1/train_image_paths.csv"
+            pathDatasetFile = os.path.join(self.root, "MURA-v1.1/train_image_paths.csv")
         elif mode == "val":
-            pathDatasetFile = "/mnt/hdd/medical-imaging/data/MURA-v1.1/valid_image_paths.csv"
+            pathDatasetFile = os.path.join(self.root, "MURA-v1.1/valid_image_paths.csv")
         fileDescriptor = open(pathDatasetFile, "r")
         listImagePaths = []
         listImageLabels = []
@@ -121,7 +121,7 @@ class Data_mura_simclr(Dataset):
             if line:
                 lineItems = line.split()
                 if lineItems[0].split("/")[2]=='XR_SHOULDER':
-                    imagePath = os.path.join(root, lineItems[0])
+                    imagePath = os.path.join(self.root, lineItems[0])
                     if 'positive' in imagePath.split("/")[-2]:
                         imageLabel = 1
                     else:

@@ -22,7 +22,7 @@ parser.add_argument("--batch_size", default=48, type=int)
 parser.add_argument("--lr", default=1e-5, type=float)
 parser.add_argument("--weight_decay", default=1e-4, type=float)
 parser.add_argument("--seed", default=4098, type=int)
-parser.add_argument("--model", default="simclr", type=str)
+parser.add_argument("--model", default="scratch", type=str)
 
 
 def main():
@@ -75,7 +75,7 @@ def main():
         model = models.resnet18(weights=None, num_classes=2)
     elif args.model == "simclr":
         model = ResNetSimCLR(base_model="resnet18", out_dim=128)
-        args.checkpoint_path = "/home/arlen/xray_classification/pre_train/Dec23_15-47-41/checkpoint_0050.pth.tar"
+        args.checkpoint_path = "/home/arlen/xray_classification/pre_train/Jan03_11-10-08/checkpoint_4000.pth.tar"
         checkpoint = torch.load(args.checkpoint_path)
         model.load_state_dict(checkpoint["state_dict"])
         model.backbone.fc = nn.Linear(512, 2)
