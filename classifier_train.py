@@ -67,8 +67,8 @@ class Train(object):
 
             label_all = torch.tensor(np.array(label_all))
             pred_all = torch.tensor(np.array(pred_all))
-            auroc_score = auroc(pred_all, label_all, num_classes=2)
-            kappa_score = cohen_kappa(pred_all, label_all, num_classes=2)
+            auroc_score = auroc(pred_all, label_all, task="multiclass", num_classes=2)
+            kappa_score = cohen_kappa(pred_all, label_all, task="multiclass", num_classes=2)
             top1 = pre_correct / len(label_all)
             self.writer.add_scalar("cls AUROC", auroc_score, epoch)
             self.writer.add_scalar("cls KAPPA", kappa_score, epoch)

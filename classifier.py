@@ -23,6 +23,7 @@ parser.add_argument("--lr", default=1e-5, type=float)
 parser.add_argument("--weight_decay", default=1e-4, type=float)
 parser.add_argument("--seed", default=4098, type=int)
 parser.add_argument("--model", default="scratch", type=str)
+parser.add_argument('--root', default="/mnt/hdd/medical-imaging/data/", type=str, help='root')
 
 
 def main():
@@ -48,8 +49,9 @@ def main():
         transforms.ToTensor(),
     ])
 
-    train_ds = Data_mura(tfs_train, 'train')
-    val_ds = Data_mura(tfs_val, 'val')
+    print(args.root)
+    train_ds = Data_mura(transforms_=tfs_train, root=args.root, mode='train')
+    val_ds = Data_mura(transforms_=tfs_val, root=args.root, mode='val')
 
     train_loader = DataLoader(
         train_ds,

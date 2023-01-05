@@ -53,6 +53,7 @@ parser.add_argument('--n-views', default=2, type=int, metavar='N',
 parser.add_argument('--gpu-index', default=0, type=int, help='Gpu index.')
 parser.add_argument('--loss', default="CE", type=str, help='SimCLR loss function.')
 parser.add_argument('--data', default="MURA", type=str, help='dataset')
+parser.add_argument('--root', default="/mnt/hdd/medical-imaging/data/", type=str, help='root')
 
 
 class GaussianNoise(object):
@@ -95,12 +96,13 @@ def main():
         transforms.ToTensor(),
     ])
 
+
     if args.data == "chest":
-        train_dataset = Data_chest(tfs, 'train')
-        val_dataset = Data_chest(tfs, 'val')
+        train_dataset = Data_chest(transforms_=tfs, root=args.root, mode='train')
+        val_dataset = Data_chest(transforms_=tfs, root=args.root, mode='val')
     elif args.data == "MURA":
-        train_dataset = Data_mura_simclr(tfs, 'train')
-        val_dataset = Data_mura_simclr(tfs, 'val')
+        train_dataset = Data_mura_simclr(transforms_=tfs, root=args.root, mode='train')
+        val_dataset = Data_mura_simclr(transforms_=tfs, root=args.root, mode='val')
 
 
 
