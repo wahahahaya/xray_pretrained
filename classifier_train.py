@@ -21,8 +21,11 @@ class Train(object):
 
         self.writer = SummaryWriter(log_dir="classifier_Dec29/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, "training.log"), level=logging.INFO)
-        self.criterion = torch.nn.NLLLoss().to(self.args.device)
-        self.softmax = torch.nn.Softmax(dim=1)
+        self.softmax = torch.nn.LogSoftmax(dim=1)
+        if self.args.data == "mura":
+            self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
+        elif self.args.data == "stl10":
+            self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
 
     def train(self, train_loader, val_loader):
         # save config file
@@ -31,6 +34,7 @@ class Train(object):
         logging.info(f"Start Classification training for {self.args.epochs} epochs.")
         logging.info(f"Seed: {self.args.seed}.")
         logging.info(f"Model: {self.args.model}.")
+        logging.info(f"data: {self.args.data}.")
         if self.args.model == "simclr":
             logging.info(f"Check point: {self.args.checkpoint_path}.")
 
@@ -40,8 +44,10 @@ class Train(object):
                 labels = label.to(self.args.device)
 
                 out = self.model(images)
-                pred = self.softmax(out)
-                loss = self.criterion(pred, labels)
+                if self.args.data == "mura":
+                    loss = self.criterion(out, labels)
+                elif self.args.data == "stl10":
+                    loss = self.criterion(out, labels)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -67,8 +73,12 @@ class Train(object):
 
             label_all = torch.tensor(np.array(label_all))
             pred_all = torch.tensor(np.array(pred_all))
-            auroc_score = auroc(pred_all, label_all, task="multiclass", num_classes=2)
-            kappa_score = cohen_kappa(pred_all, label_all, task="multiclass", num_classes=2)
+            if self.args.data == "mura":
+                auroc_score = auroc(pred_all, label_all, task="multiclass", num_classes=2)
+                kappa_score = cohen_kappa(pred_all, label_all, task="multiclass", num_classes=2)
+            elif self.args.data == "stl10":
+                auroc_score = auroc(pred_all, label_all, task="multiclass", num_classes=10)
+                kappa_score = cohen_kappa(pred_all, label_all, task="multiclass", num_classes=10)
             top1 = pre_correct / len(label_all)
             self.writer.add_scalar("cls AUROC", auroc_score, epoch)
             self.writer.add_scalar("cls KAPPA", kappa_score, epoch)

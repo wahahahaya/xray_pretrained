@@ -86,9 +86,7 @@ class Data_chest(Dataset):
         image_path = self.img_path[index]
         images = []
         image = Image.open(image_path)
-        print(image.size)
-        print(type(image))
-        image = functional.equalize(image)
+        # image = functional.equalize(image)
         if self.transform is not None:
             image_1 = self.transform(image)
             image_2 = self.transform(image)
@@ -138,7 +136,7 @@ class Data_mura_simclr(Dataset):
         image_path = self.img_path[index]
         images = []
         image = Image.open(image_path).convert("RGB")
-        image = functional.equalize(image)
+        # image = functional.equalize(image)
         if self.transform is not None:
             image_1 = self.transform(image)
             image_2 = self.transform(image)
