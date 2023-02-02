@@ -19,11 +19,12 @@ class Train(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
 
-        self.writer = SummaryWriter(log_dir="classifier_Dec29/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
+        self.writer = SummaryWriter(log_dir="classifier_2023/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, "training.log"), level=logging.INFO)
         self.softmax = torch.nn.LogSoftmax(dim=1)
         if self.args.data == "mura":
             self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
+            # self.criterion = torch.nn.NLLLoss().to(self.args.device)
         elif self.args.data == "stl10":
             self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
 
@@ -45,6 +46,8 @@ class Train(object):
 
                 out = self.model(images)
                 if self.args.data == "mura":
+                    # pred = self.softmax(out)
+                    # loss = self.criterion(pred, labels)
                     loss = self.criterion(out, labels)
                 elif self.args.data == "stl10":
                     loss = self.criterion(out, labels)
@@ -64,10 +67,9 @@ class Train(object):
 
                 with torch.no_grad():
                     out = self.model(images)
-                    pred = self.softmax(out)
 
-                pre_correct += (pred.argmax(-1) == labels).float().sum()
-                pred_all.extend(pred.cpu().detach().numpy())
+                pre_correct += (out.argmax(-1) == labels).float().sum()
+                pred_all.extend(out.cpu().detach().numpy())
                 label_all.extend(labels.cpu().detach().numpy())
 
 
