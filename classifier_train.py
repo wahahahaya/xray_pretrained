@@ -19,7 +19,7 @@ class Train(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
 
-        self.writer = SummaryWriter(log_dir="classifier_2023/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
+        self.writer = SummaryWriter(log_dir="/mnt/hdd/medical-imaging/models/classifier_overfit/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, "training.log"), level=logging.INFO)
         self.softmax = torch.nn.LogSoftmax(dim=1)
         if self.args.data == "mura":
@@ -58,6 +58,35 @@ class Train(object):
 
             self.writer.add_scalar("cls loss", loss, epoch)
 
+            ################## Train ###################
+            pred_all_train = []
+            label_all_train = []
+            pre_correct_trian = 0
+            for image, label in tqdm(train_loader):
+                images = image.to(self.args.device)
+                labels = label.to(self.args.device)
+
+                with torch.no_grad():
+                    out = self.model(images)
+
+                pre_correct_trian += (out.argmax(-1) == labels).float().sum()
+                pred_all_train.extend(out.cpu().detach().numpy())
+                label_all_train.extend(labels.cpu().detach().numpy())
+
+            label_all_train = torch.tensor(np.array(label_all_train))
+            pred_all_train = torch.tensor(np.array(pred_all_train))
+            if self.args.data == "mura":
+                auroc_score = auroc(pred_all_train, label_all_train, task="multiclass", num_classes=2)
+                kappa_score = cohen_kappa(pred_all_train, label_all_train, task="multiclass", num_classes=2)
+            elif self.args.data == "stl10":
+                auroc_score = auroc(pred_all_train, label_all_train, task="multiclass", num_classes=10)
+                kappa_score = cohen_kappa(pred_all_train, label_all_train, task="multiclass", num_classes=10)
+            top1 = pre_correct_trian / len(label_all_train)
+            self.writer.add_scalar("cls AUROC/train", auroc_score, epoch)
+            self.writer.add_scalar("cls KAPPA/train", kappa_score, epoch)
+            self.writer.add_scalar("cls top1 acc/train", top1, epoch)
+            
+            ################## Val ######################
             pred_all = []
             label_all = []
             pre_correct = 0
@@ -82,9 +111,9 @@ class Train(object):
                 auroc_score = auroc(pred_all, label_all, task="multiclass", num_classes=10)
                 kappa_score = cohen_kappa(pred_all, label_all, task="multiclass", num_classes=10)
             top1 = pre_correct / len(label_all)
-            self.writer.add_scalar("cls AUROC", auroc_score, epoch)
-            self.writer.add_scalar("cls KAPPA", kappa_score, epoch)
-            self.writer.add_scalar("cls top1 acc", top1, epoch)
+            self.writer.add_scalar("cls AUROC/val", auroc_score, epoch)
+            self.writer.add_scalar("cls KAPPA/val", kappa_score, epoch)
+            self.writer.add_scalar("cls top1 acc/val", top1, epoch)
 
             print("Epoch: %d, top1: %.4f, AUROC: %.4f, KAPPA: %.4f" % (epoch, top1, auroc_score, kappa_score))
             logging.info(f"Training Epoch: {epoch}\tLoss: {loss.item()}\tTop1 accuracy: {top1.item()}\tAUROC: {auroc_score}")

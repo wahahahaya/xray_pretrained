@@ -16,14 +16,14 @@ from models.resnet_simclr import ResNetSimCLR
 
 parser = argparse.ArgumentParser(description='PyTorch MURA shoulder fracture classification')
 
-parser.add_argument("--epochs", default=500, type=int)
-parser.add_argument("--batch_size", default=256, type=int)
+parser.add_argument("--epochs", default=250, type=int)
+parser.add_argument("--batch_size", default=128, type=int)
 parser.add_argument("--lr", default=1e-4, type=float)
 parser.add_argument("--weight_decay", default=1e-5, type=float)
 parser.add_argument("--seed", default=4098, type=int)
-parser.add_argument("--model", default="scratch", type=str)
+parser.add_argument("--model", default="ImageNet", type=str)
 parser.add_argument('--root', default="/mnt/hdd/medical-imaging/data/", type=str, help='root')
-parser.add_argument('--data', default="mura", type=str, help='dataset')
+parser.add_argument('--data', default="stl10", type=str, help='dataset')
 
 
 def main():
@@ -75,18 +75,21 @@ def main():
     if args.model == "ImageNet":
         model = models.resnet18(weights="ResNet18_Weights.IMAGENET1K_V1")
         dim_mlp = model.fc.in_features
-        model.fc = nn.Linear(dim_mlp, 2)
+        model.fc = nn.Linear(dim_mlp, 10)
     elif args.model == "scratch":
         model = models.resnet18(weights=None, num_classes=2)
     elif args.model == "simclr":
         model = ResNetSimCLR(base_model="resnet18", out_dim=128)
-        args.checkpoint_path = "/home/arlen/xray_classification/pre_train/Jan31_01-13-25/checkpoint_0100.pth.tar"
+        args.checkpoint_path = ""
         checkpoint = torch.load(args.checkpoint_path)
         model.load_state_dict(checkpoint["state_dict"])
+        for name, param in model.named_parameters():
+            if name not in ['fc.weight', 'fc.bias']:
+                param.requires_grad = False
         model.backbone.fc = nn.Linear(512, 2)
 
 
-    optimizer = optim.Adam(model.parameters(), args.lr)
+    optimizer = optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
     train_process = Train(model=model, optimizer=optimizer, args=args)
     train_process.train(train_loader, val_loader)
 

@@ -8,7 +8,7 @@ from pre_train_simclr_v2 import SimCLR
 
 from torch.profiler import profile, record_function, ProfilerActivity
 
-from torchvision import transforms
+from torchvision import transforms, datasets
 from data import Data_chest, Data_mura_simclr
 
 model_names = sorted(name for name in models.__dict__
@@ -16,21 +16,21 @@ model_names = sorted(name for name in models.__dict__
                      and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch SimCLR')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
 parser.add_argument('-j', '--workers', default=12, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
-parser.add_argument('--epochs', default=4000, type=int, metavar='N',
+parser.add_argument('--epochs', default=500, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('-b', '--batch_size', default=128, type=int,
+parser.add_argument('-b', '--batch_size', default=32, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=1e-6, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
@@ -52,7 +52,7 @@ parser.add_argument('--n-views', default=2, type=int, metavar='N',
                     help='Number of views for contrastive learning training.')
 parser.add_argument('--gpu-index', default=0, type=int, help='Gpu index.')
 parser.add_argument('--loss', default="CE", type=str, help='SimCLR loss function.')
-parser.add_argument('--data', default="MURA", type=str, help='dataset')
+parser.add_argument('--data', default="chest", type=str, help='dataset')
 parser.add_argument('--root', default="/mnt/hdd/medical-imaging/data/", type=str, help='root')
 
 
@@ -72,6 +72,17 @@ class GaussianNoise(object):
         return img
 
 
+class ContrastiveLearningViewGenerator(object):
+    """Take two random crops of one image as the query and key."""
+
+    def __init__(self, base_transform, n_views=2):
+        self.base_transform = base_transform
+        self.n_views = n_views
+
+    def __call__(self, x):
+        return [self.base_transform(x) for i in range(self.n_views)]
+
+
 def main():
     args = parser.parse_args()
     assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
@@ -86,15 +97,24 @@ def main():
 
 
     # ColorJitter: brightness, contrast, saturation, hue
-    color_jitter = transforms.ColorJitter(0.8, 0.8, 0.8, 0.2)
+    # color_jitter = transforms.ColorJitter(0.2, 0.2, 0.0, 0.0)
+    # tfs = transforms.Compose([
+    #     transforms.RandomRotation(20),
+    #     transforms.RandomCrop((224,224)),
+    #     transforms.RandomApply([color_jitter], p=0.8),
+    #     GaussianNoise(0.1),
+    #     transforms.GaussianBlur(5, (0.1, 2.0)),
+    #     transforms.ToTensor(),
+    # ])
+
     tfs = transforms.Compose([
-        transforms.RandomResizedCrop((256,256), scale=(0.5,1.0), ratio=(1.0,1.0)),
-        transforms.RandomApply([color_jitter], p=0.8),
-        transforms.RandomRotation(15),
-        GaussianNoise(0.1),
-        transforms.GaussianBlur(5, (0.1, 2.0)),
+        transforms.RandomRotation(degrees=20),
+        transforms.RandomResizedCrop((224,224), scale=(0.5,1.0), ratio=(1.0,1.0)),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.0, hue=0.0),
         transforms.ToTensor(),
     ])
+
 
 
     if args.data == "chest":
@@ -103,6 +123,9 @@ def main():
     elif args.data == "MURA":
         train_dataset = Data_mura_simclr(transforms_=tfs, root=args.root, mode='train')
         val_dataset = Data_mura_simclr(transforms_=tfs, root=args.root, mode='val')
+    elif args.data == "stl10":
+        train_dataset = datasets.STL10(root=args.root, split='train+unlabeled', transform=ContrastiveLearningViewGenerator(tfs, 2), download=True)
+        val_dataset = datasets.STL10(root=args.root, split='test', transform=ContrastiveLearningViewGenerator(tfs, 2), download=True)
 
 
 

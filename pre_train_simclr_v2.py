@@ -1,6 +1,7 @@
 import logging
 import os
 from tqdm import tqdm
+import numpy as np
 
 import torch
 import torch.nn.functional as F
@@ -18,7 +19,7 @@ class SimCLR(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
-        self.writer = SummaryWriter(log_dir="pre_train/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
+        self.writer = SummaryWriter(log_dir="/mnt/hdd/medical-imaging/models/pre_train_2023/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, 'simclr.log'), level=logging.INFO)
         self.loss = self.args.loss
         if self.loss == "CE":
@@ -102,7 +103,12 @@ class SimCLR(object):
 
         for epoch_counter in range(self.args.epochs):
             for images, factor in tqdm(train_loader):
-                images = torch.cat(images, dim=0).to(self.args.device)
+                iter_counter = 0
+                if iter_counter == 0:
+                    image_1 = np.array(images[0][0]*255, dtype=np.uint8)
+                    image_2 = np.array(images[1][0]*255, dtype=np.uint8)
+                iter_counter += 1
+                images = torch.cat(images, dim=0).to(self.args.device)  # images.shape == [256,3,256,256]
 
                 batch, channel, weidth, length = images.shape
                 images = torch.broadcast_to(images, (batch, 3, weidth, length)).to(self.args.device)
@@ -135,8 +141,10 @@ class SimCLR(object):
                 top1, top5 = accuracy(logits, labels, topk=(1, 5))
             self.writer.add_scalar('pre loss', loss, global_step=epoch_counter)
             self.writer.add_scalar('pre loss feature', loss_feature, global_step=epoch_counter)
-            self.writer.add_scalar('pre acc/top1', top1[0], global_step=epoch_counter)
-            self.writer.add_scalar('pre acc/top5', top5[0], global_step=epoch_counter)
+            self.writer.add_scalar('pre acc/train_top1', top1[0], global_step=epoch_counter)
+            self.writer.add_scalar('pre acc/train_top5', top5[0], global_step=epoch_counter)
+            self.writer.add_image('image_1', image_1, global_step=epoch_counter)
+            self.writer.add_image('image_2', image_2, global_step=epoch_counter)
 
 
             for images_val, factor_val in tqdm(val_loader):
@@ -150,15 +158,15 @@ class SimCLR(object):
                 logits_val, labels_val, lables_onehot_val = self.info_nce_loss(features_val)  # logits.shape == [256,255], labels.shape == [256]
                 
                 top1_val, top5_val = accuracy(logits_val, labels_val, topk=(1, 5))
-            self.writer.add_scalar('pre val acc/top1', top1_val[0], global_step=epoch_counter)
-            self.writer.add_scalar('pre val acc/top5', top5_val[0], global_step=epoch_counter)
+            self.writer.add_scalar('pre acc/val_top1', top1_val[0], global_step=epoch_counter)
+            self.writer.add_scalar('pre acc/val_top5', top5_val[0], global_step=epoch_counter)
 
         
             # warmup for the first 10 epochs
             if epoch_counter >= 10:
                 self.scheduler.step()
 
-            if epoch_counter%100 == 0:
+            if epoch_counter%10 == 0:
                 checkpoint_name = 'checkpoint_{:04d}.pth.tar'.format(epoch_counter)
                 save_checkpoint({
                     'epoch': self.args.epochs,
