@@ -1,10 +1,12 @@
 import argparse
 import os
 import torch
+from torch import nn
 import torch.backends.cudnn as cudnn
 from torchvision import models
 from models.resnet_simclr import ResNetSimCLR
 from pre_train_simclr_v2 import SimCLR
+import numpy as np
 
 from torch.profiler import profile, record_function, ProfilerActivity
 
@@ -16,21 +18,21 @@ model_names = sorted(name for name in models.__dict__
                      and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch SimCLR')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
-parser.add_argument('-j', '--workers', default=12, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=5, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
-parser.add_argument('--epochs', default=500, type=int, metavar='N',
+parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('-b', '--batch_size', default=32, type=int,
+parser.add_argument('-b', '--batch_size', default=64, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=3e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
@@ -52,7 +54,7 @@ parser.add_argument('--n-views', default=2, type=int, metavar='N',
                     help='Number of views for contrastive learning training.')
 parser.add_argument('--gpu-index', default=0, type=int, help='Gpu index.')
 parser.add_argument('--loss', default="CE", type=str, help='SimCLR loss function.')
-parser.add_argument('--data', default="chest", type=str, help='dataset')
+parser.add_argument('--data', default="stl10", type=str, help='dataset')
 parser.add_argument('--root', default="/mnt/hdd/medical-imaging/data/", type=str, help='root')
 
 
@@ -67,6 +69,48 @@ class GaussianNoise(object):
         with torch.no_grad():
             img = img + self.sigma*torch.rand_like(img)
             img = img.squeeze()
+        img = self.tensor_to_pil(img)
+
+        return img
+
+
+class GaussianBlur(object):
+    """blur a single image on CPU"""
+    def __init__(self, kernel_size):
+        radias = kernel_size // 2
+        kernel_size = radias * 2 + 1
+        self.blur_h = nn.Conv2d(3, 3, kernel_size=(kernel_size, 1),
+                                stride=1, padding=0, bias=False, groups=3)
+        self.blur_v = nn.Conv2d(3, 3, kernel_size=(1, kernel_size),
+                                stride=1, padding=0, bias=False, groups=3)
+        self.k = kernel_size
+        self.r = radias
+
+        self.blur = nn.Sequential(
+            nn.ReflectionPad2d(radias),
+            self.blur_h,
+            self.blur_v
+        )
+
+        self.pil_to_tensor = transforms.ToTensor()
+        self.tensor_to_pil = transforms.ToPILImage()
+
+    def __call__(self, img):
+        img = self.pil_to_tensor(img).unsqueeze(0)
+
+        sigma = np.random.uniform(0.1, 2.0)
+        x = np.arange(-self.r, self.r + 1)
+        x = np.exp(-np.power(x, 2) / (2 * sigma * sigma))
+        x = x / x.sum()
+        x = torch.from_numpy(x).view(1, -1).repeat(3, 1)
+
+        self.blur_h.weight.data.copy_(x.view(3, 1, self.k, 1))
+        self.blur_v.weight.data.copy_(x.view(3, 1, 1, self.k))
+
+        with torch.no_grad():
+            img = self.blur(img)
+            img = img.squeeze()
+
         img = self.tensor_to_pil(img)
 
         return img
@@ -107,13 +151,26 @@ def main():
     #     transforms.ToTensor(),
     # ])
 
-    tfs = transforms.Compose([
-        transforms.RandomRotation(degrees=20),
-        transforms.RandomResizedCrop((224,224), scale=(0.5,1.0), ratio=(1.0,1.0)),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.0, hue=0.0),
-        transforms.ToTensor(),
-    ])
+    # 2023-03-02 (X too weak)
+    # tfs = transforms.Compose([
+    #     transforms.RandomRotation(degrees=20),
+    #     transforms.RandomResizedCrop((96,96), scale=(0.5,1.0), ratio=(1.0,1.0)),
+    #     transforms.RandomHorizontalFlip(p=0.5),
+    #     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.0, hue=0.0),
+    #     transforms.ToTensor(),
+    # ])
+
+    # s = 1.0
+    # color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
+    color_jitter = transforms.ColorJitter(0.2, 0.2, 0.0, 0.0)
+    size = 96
+    tfs = transforms.Compose([transforms.RandomResizedCrop(size=size),
+                                transforms.RandomRotation(degrees=90),
+                                transforms.RandomHorizontalFlip(),
+                                transforms.RandomApply([color_jitter], p=1.0),
+                                transforms.RandomGrayscale(p=1.0),
+                                GaussianBlur(kernel_size=int(0.1 * size)),
+                                transforms.ToTensor()])
 
 
 
@@ -124,7 +181,7 @@ def main():
         train_dataset = Data_mura_simclr(transforms_=tfs, root=args.root, mode='train')
         val_dataset = Data_mura_simclr(transforms_=tfs, root=args.root, mode='val')
     elif args.data == "stl10":
-        train_dataset = datasets.STL10(root=args.root, split='train+unlabeled', transform=ContrastiveLearningViewGenerator(tfs, 2), download=True)
+        train_dataset = datasets.STL10(root=args.root, split='unlabeled', transform=ContrastiveLearningViewGenerator(tfs, 2), download=True)
         val_dataset = datasets.STL10(root=args.root, split='test', transform=ContrastiveLearningViewGenerator(tfs, 2), download=True)
 
 

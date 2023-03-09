@@ -19,7 +19,7 @@ class SimCLR(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
-        self.writer = SummaryWriter(log_dir="/mnt/hdd/medical-imaging/models/pre_train_2023/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
+        self.writer = SummaryWriter(log_dir="/mnt/hdd/medical-imaging/models/pre_train_2023_aug/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, 'simclr.log'), level=logging.INFO)
         self.loss = self.args.loss
         if self.loss == "CE":
@@ -101,6 +101,7 @@ class SimCLR(object):
         logging.info(f"info nce loss: {self.args.loss}.")
         logging.info(f"learning rate: {self.args.lr}.")
 
+
         for epoch_counter in range(self.args.epochs):
             for images, factor in tqdm(train_loader):
                 iter_counter = 0
@@ -111,7 +112,8 @@ class SimCLR(object):
                 images = torch.cat(images, dim=0).to(self.args.device)  # images.shape == [256,3,256,256]
 
                 batch, channel, weidth, length = images.shape
-                images = torch.broadcast_to(images, (batch, 3, weidth, length)).to(self.args.device)
+                # images_board = torch.broadcast_to(images, (batch, 3, weidth, length)).to(self.args.device)
+
 
                 with autocast(enabled=self.args.fp16_precision):
                     features = self.model(images)

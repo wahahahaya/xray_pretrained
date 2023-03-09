@@ -19,14 +19,25 @@ class Train(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
 
-        self.writer = SummaryWriter(log_dir="/mnt/hdd/medical-imaging/models/classifier_overfit/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
+        self.writer = SummaryWriter(log_dir="/mnt/hdd/medical-imaging/models/classifier_stl10_aug/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, "training.log"), level=logging.INFO)
-        self.softmax = torch.nn.LogSoftmax(dim=1)
-        if self.args.data == "mura":
-            self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
-            # self.criterion = torch.nn.NLLLoss().to(self.args.device)
-        elif self.args.data == "stl10":
-            self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
+        self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
+
+    def accuracy(self, output, target, topk=(1,)):
+        """Computes the accuracy over the k top predictions for the specified values of k"""
+        with torch.no_grad():
+            maxk = max(topk)
+            batch_size = target.size(0)
+
+            _, pred = output.topk(maxk, 1, True, True)
+            pred = pred.t()
+            correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+            res = []
+            for k in topk:
+                correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
+                res.append(correct_k.mul_(100.0 / batch_size))
+            return res
 
     def train(self, train_loader, val_loader):
         # save config file
@@ -40,83 +51,39 @@ class Train(object):
             logging.info(f"Check point: {self.args.checkpoint_path}.")
 
         for epoch in range(self.args.epochs):
-            for image, label in tqdm(train_loader):
+            top1_train_accuracy = 0
+            for counter, (image, label) in enumerate(train_loader):
                 images = image.to(self.args.device)
                 labels = label.to(self.args.device)
 
                 out = self.model(images)
-                if self.args.data == "mura":
-                    # pred = self.softmax(out)
-                    # loss = self.criterion(pred, labels)
-                    loss = self.criterion(out, labels)
-                elif self.args.data == "stl10":
-                    loss = self.criterion(out, labels)
+                loss = self.criterion(out, labels)
+
+                top1 = self.accuracy(out, labels, topk=(1,))
+                top1_train_accuracy += top1[0]
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-            self.writer.add_scalar("cls loss", loss, epoch)
+            top1_train_accuracy /= (counter + 1)
+            top1_accuracy = 0
+            top5_accuracy = 0
+            for counter, (x_batch, y_batch) in enumerate(val_loader):
+                x_batch = x_batch.to(self.args.device)
+                y_batch = y_batch.to(self.args.device)
 
-            ################## Train ###################
-            pred_all_train = []
-            label_all_train = []
-            pre_correct_trian = 0
-            for image, label in tqdm(train_loader):
-                images = image.to(self.args.device)
-                labels = label.to(self.args.device)
-
-                with torch.no_grad():
-                    out = self.model(images)
-
-                pre_correct_trian += (out.argmax(-1) == labels).float().sum()
-                pred_all_train.extend(out.cpu().detach().numpy())
-                label_all_train.extend(labels.cpu().detach().numpy())
-
-            label_all_train = torch.tensor(np.array(label_all_train))
-            pred_all_train = torch.tensor(np.array(pred_all_train))
-            if self.args.data == "mura":
-                auroc_score = auroc(pred_all_train, label_all_train, task="multiclass", num_classes=2)
-                kappa_score = cohen_kappa(pred_all_train, label_all_train, task="multiclass", num_classes=2)
-            elif self.args.data == "stl10":
-                auroc_score = auroc(pred_all_train, label_all_train, task="multiclass", num_classes=10)
-                kappa_score = cohen_kappa(pred_all_train, label_all_train, task="multiclass", num_classes=10)
-            top1 = pre_correct_trian / len(label_all_train)
-            self.writer.add_scalar("cls AUROC/train", auroc_score, epoch)
-            self.writer.add_scalar("cls KAPPA/train", kappa_score, epoch)
-            self.writer.add_scalar("cls top1 acc/train", top1, epoch)
+                logits = self.model(x_batch)
             
-            ################## Val ######################
-            pred_all = []
-            label_all = []
-            pre_correct = 0
-            for image, label in tqdm(val_loader):
-                images = image.to(self.args.device)
-                labels = label.to(self.args.device)
-
-                with torch.no_grad():
-                    out = self.model(images)
-
-                pre_correct += (out.argmax(-1) == labels).float().sum()
-                pred_all.extend(out.cpu().detach().numpy())
-                label_all.extend(labels.cpu().detach().numpy())
-
-
-            label_all = torch.tensor(np.array(label_all))
-            pred_all = torch.tensor(np.array(pred_all))
-            if self.args.data == "mura":
-                auroc_score = auroc(pred_all, label_all, task="multiclass", num_classes=2)
-                kappa_score = cohen_kappa(pred_all, label_all, task="multiclass", num_classes=2)
-            elif self.args.data == "stl10":
-                auroc_score = auroc(pred_all, label_all, task="multiclass", num_classes=10)
-                kappa_score = cohen_kappa(pred_all, label_all, task="multiclass", num_classes=10)
-            top1 = pre_correct / len(label_all)
-            self.writer.add_scalar("cls AUROC/val", auroc_score, epoch)
-            self.writer.add_scalar("cls KAPPA/val", kappa_score, epoch)
-            self.writer.add_scalar("cls top1 acc/val", top1, epoch)
-
-            print("Epoch: %d, top1: %.4f, AUROC: %.4f, KAPPA: %.4f" % (epoch, top1, auroc_score, kappa_score))
-            logging.info(f"Training Epoch: {epoch}\tLoss: {loss.item()}\tTop1 accuracy: {top1.item()}\tAUROC: {auroc_score}")
+                top1, top5 = self.accuracy(logits, y_batch, topk=(1,5))
+                top1_accuracy += top1[0]
+                top5_accuracy += top5[0]
+            
+            top1_accuracy /= (counter + 1)
+            top5_accuracy /= (counter + 1)
+            print(f"Epoch {epoch}\tTop1 Train accuracy {top1_train_accuracy.item()}\tTop1 Test accuracy: {top1_accuracy.item()}\tTop5 test acc: {top5_accuracy.item()}")
+            self.writer.add_scalar("train top1 acc", top1_train_accuracy, epoch)
+            self.writer.add_scalar("val top1 acc", top1_accuracy, epoch)        
 
         logging.info("Training has finished.")
         # save model
