@@ -19,7 +19,7 @@ class Train(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
 
-        self.writer = SummaryWriter(log_dir="/mnt/hdd/medical-imaging/models/classifier_stl10_aug/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
+        self.writer = SummaryWriter(log_dir="/mnt/hdd/medical-imaging/models/classifier_mura/{}".format(datetime.now().strftime("%b%d_%H-%M-%S")))
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, "training.log"), level=logging.INFO)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
 
@@ -54,12 +54,14 @@ class Train(object):
             top1_train_accuracy = 0
             for counter, (image, label) in enumerate(train_loader):
                 images = image.to(self.args.device)
+                batch, channel, weidth, length = images.shape
+                images = torch.broadcast_to(images, (batch, 3, weidth, length)).to(self.args.device)
                 labels = label.to(self.args.device)
 
                 out = self.model(images)
                 loss = self.criterion(out, labels)
 
-                top1 = self.accuracy(out, labels, topk=(1,))
+                top1 = self.accuracy(out, labels)
                 top1_train_accuracy += top1[0]
 
                 self.optimizer.zero_grad()
@@ -75,13 +77,13 @@ class Train(object):
 
                 logits = self.model(x_batch)
             
-                top1, top5 = self.accuracy(logits, y_batch, topk=(1,5))
+                top1 = self.accuracy(logits, y_batch)
                 top1_accuracy += top1[0]
-                top5_accuracy += top5[0]
+                # top5_accuracy += top5[0]
             
             top1_accuracy /= (counter + 1)
-            top5_accuracy /= (counter + 1)
-            print(f"Epoch {epoch}\tTop1 Train accuracy {top1_train_accuracy.item()}\tTop1 Test accuracy: {top1_accuracy.item()}\tTop5 test acc: {top5_accuracy.item()}")
+            # top5_accuracy /= (counter + 1)
+            print(f"Epoch {epoch}\tTop1 Train accuracy {top1_train_accuracy.item()}\tTop1 Test accuracy: {top1_accuracy.item()}")
             self.writer.add_scalar("train top1 acc", top1_train_accuracy, epoch)
             self.writer.add_scalar("val top1 acc", top1_accuracy, epoch)        
 

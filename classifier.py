@@ -17,13 +17,13 @@ from models.resnet_simclr import ResNetSimCLR
 parser = argparse.ArgumentParser(description='PyTorch MURA shoulder fracture classification')
 
 parser.add_argument("--epochs", default=1000, type=int)
-parser.add_argument("--batch_size", default=128, type=int)
+parser.add_argument("--batch_size", default=32, type=int)
 parser.add_argument("--lr", default=3e-4, type=float)
 parser.add_argument("--weight_decay", default=8e-4, type=float)
 parser.add_argument("--seed", default=4098, type=int)
-parser.add_argument("--model", default="simclr", type=str)
+parser.add_argument("--model", default="scratch", type=str)
 parser.add_argument('--root', default="/mnt/hdd/medical-imaging/data/", type=str, help='root')
-parser.add_argument('--data', default="stl10", type=str, help='dataset')
+parser.add_argument('--data', default="mura", type=str, help='dataset')
 
 
 def main():
@@ -38,14 +38,14 @@ def main():
     random.seed(args.seed)
 
     tfs_train = transforms.Compose([
-        # transforms.Resize((96, 96)),
+        transforms.Resize((224, 224)),
         # transforms.RandomHorizontalFlip(0.5),
         # transforms.RandomRotation(30),
         transforms.ToTensor(),
     ])
 
     tfs_val = transforms.Compose([
-        # transforms.Resize((96, 96)),
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
     ])
 
@@ -73,14 +73,22 @@ def main():
     )
 
     if args.model == "ImageNet":
-        model = models.resnet18(weights="ResNet18_Weights.IMAGENET1K_V1")
-        dim_mlp = model.fc.in_features
-        model.fc = nn.Linear(dim_mlp, 10)
+        model = models.resnet18(weights="ResNet18_Weights.IMAGENET1K_V1").to(args.device)
+        model.fc = nn.Linear(512, 2, bias=True)
+        # freeze all layers but the last fc
+        for name, param in model.named_parameters():
+            if name not in ['fc.weight', 'fc.bias']:
+                param.requires_grad = False
+
+        parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
+        assert len(parameters) == 2  # fc.weight, fc.bias
+
     elif args.model == "scratch":
         model = models.resnet18(weights=None, num_classes=2)
+
     elif args.model == "simclr":
-        model = models.resnet18(weights=None, num_classes=10).to(args.device)
-        args.checkpoint_path = "/mnt/hdd/medical-imaging/models/pre_train_2023_aug/Mar08_07-34-00/checkpoint_0200.pth.tar"
+        model = models.resnet18(weights=None, num_classes=2).to(args.device)
+        args.checkpoint_path = "/mnt/hdd/medical-imaging/models/pre_train_2023_chest/Mar09_15-05-25/checkpoint_0200.pth.tar"
         checkpoint = torch.load(args.checkpoint_path, map_location=args.device)
         state_dict = checkpoint['state_dict']
         for k in list(state_dict.keys()):
