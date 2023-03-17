@@ -1,9 +1,9 @@
 # No more ImageNet pre-trained
 
 ## TODO
-- [] add lr step (stable the output scalar)
-- [] increase x-aray dataset (without shoulder)
-- [] add labeled information in the simclr pre-trained
+- [ ] add lr step (stable the output scalar)
+- [ ] increase x-aray dataset (without shoulder)
+- [ ] add labeled information in the simclr pre-trained
 
 ## argument
 - 100K unlabeled image vs Imagenet labeled image (100K labeled natural image will be better than x-ray pretrained?)
