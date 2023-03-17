@@ -1,6 +1,15 @@
 # No more ImageNet pre-trained
 
-## file
+## TODO
+- [] add lr step (stable the output scalar)
+- [] increase x-aray dataset (without shoulder)
+- [] add labeled information in the simclr pre-trained
+
+argument
+- 100K unlabeled image vs Imagenet labeled image (100K labeled natural image will be better than x-ray pretrained?)
+- freeze layer vs fine tune (make sure the training necessary: freeze, regulize, weight decay…)
+    - data distribution [model embedding] (chest x-ray, shoulder x-ray, nature image)
+
 
 ## Train
 Simclr pre-trained model: run ```pre_train.py``` with the following args:
