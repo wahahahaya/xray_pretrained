@@ -27,13 +27,13 @@ python3 pre_train.py --data="chest" --lr=1e-4
 ```
 
 Classification: run ```classifier.py``` with the following args:
-```--epochs```: default 1000
-```--batch_size```: default 32
-```--lr```: default=3e-4
-```--weight_decay```: default=8e-4
-```--model```: "scratch", "ImageNet", and "simclr"
-```--root```: the root of the dataset
-```--data```: "mura", and "stl10
+- ```--epochs```: default 1000
+- ```--batch_size```: default 32
+- ```--lr```: default=3e-4
+- ```--weight_decay```: default=8e-4
+- ```--model```: "scratch", "ImageNet", and "simclr"
+- ```--root```: the root of the dataset
+- ```--data```: "mura", and "stl10
 
 *** classifier.py #L75~L109 the default set is freeze all layer but the last
 
