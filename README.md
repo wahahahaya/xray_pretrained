@@ -12,4 +12,7 @@ Simclr pre-trained model: run ```pre_train.py``` with the following args:
 
 *** pre_train_simclr_v2.py #L22 need to change the path. the output folder have .log, .pth, and .event.
 example:
-```python3 pre_train.py --data="chest" --lr=1e-4```
+
+```bash
+python3 pre_train.py --data="chest" --lr=1e-4
+```
