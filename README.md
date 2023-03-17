@@ -5,7 +5,7 @@
 - [] increase x-aray dataset (without shoulder)
 - [] add labeled information in the simclr pre-trained
 
-argument
+## argument
 - 100K unlabeled image vs Imagenet labeled image (100K labeled natural image will be better than x-ray pretrained?)
 - freeze layer vs fine tune (make sure the training necessary: freeze, regulize, weight decay…)
     - data distribution [model embedding] (chest x-ray, shoulder x-ray, nature image)
