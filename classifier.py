@@ -75,7 +75,7 @@ def main():
     if args.model == "ImageNet":
         model = models.resnet18(weights="ResNet18_Weights.IMAGENET1K_V1").to(args.device)
         model.fc = nn.Linear(512, 2, bias=True)
-        # freeze all layers but the last fc
+        # # freeze all layers but the last fc
         for name, param in model.named_parameters():
             if name not in ['fc.weight', 'fc.bias']:
                 param.requires_grad = False
@@ -85,6 +85,14 @@ def main():
 
     elif args.model == "scratch":
         model = models.resnet18(weights=None, num_classes=2)
+
+        # freeze all layers but the last fc
+        for name, param in model.named_parameters():
+            if name not in ['fc.weight', 'fc.bias']:
+                param.requires_grad = False
+
+        parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
+        assert len(parameters) == 2  # fc.weight, fc.bias
 
     elif args.model == "simclr":
         model = models.resnet18(weights=None, num_classes=2).to(args.device)
